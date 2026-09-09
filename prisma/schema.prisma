@@ -1,0 +1,242 @@
+// Capaciti — B2B manufacturing capacity marketplace
+// Data model. See README.md for architecture notes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum CompanyType {
+  BUYER
+  SUPPLIER
+  BOTH
+}
+
+enum UserRole {
+  BUYER
+  SUPPLIER
+  ADMIN
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  LIMITED
+  FULL
+}
+
+enum RfqStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  uploadedFiles RfqFile[]
+
+  @@index([companyId])
+}
+
+// ---------------------------------------------------------------------------
+// Companies
+// ---------------------------------------------------------------------------
+
+model Company {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  country     String // ISO 3166-1 alpha-2, e.g. "SI"
+  postalCode  String
+  city        String
+  website     String?
+  description String?
+  companyType CompanyType
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  users    User[]
+  machines Machine[]
+  rfqs     Rfq[]
+
+  @@index([country])
+  @@index([companyType])
+}
+
+// ---------------------------------------------------------------------------
+// Manufacturing processes & materials (normalized reference data)
+// ---------------------------------------------------------------------------
+
+model ManufacturingProcess {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g. CNC_MILLING, CNC_TURNING, LASER_CUTTING (future)
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  machines Machine[]
+  rfqs     Rfq[]
+}
+
+model Material {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  createdAt DateTime @default(now())
+
+  machineMaterials MachineMaterial[]
+  rfqs             Rfq[]
+}
+
+// ---------------------------------------------------------------------------
+// Machines (supplier capacity)
+// ---------------------------------------------------------------------------
+
+model Machine {
+  id                     String   @id @default(cuid())
+  companyId              String
+  company                Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                   String
+  manufacturer           String?
+  model                  String?
+  manufacturingProcessId String
+  manufacturingProcess   ManufacturingProcess @relation(fields: [manufacturingProcessId], references: [id])
+  description            String?
+
+  // Process-specific technical capabilities (axis count, travel, turning
+  // diameter, etc). Validated at the application layer against a per-process
+  // zod schema (src/domain/processes) before being persisted — this keeps
+  // the relational schema stable while still letting each manufacturing
+  // process define its own capability shape.
+  capabilities Json @default("{}")
+
+  minimumBatchSize Int?
+  maximumBatchSize Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  materials    MachineMaterial[]
+  availability MachineAvailability[]
+  matches      MatchResult[]
+
+  @@index([companyId])
+  @@index([manufacturingProcessId])
+}
+
+model MachineMaterial {
+  machineId  String
+  machine    Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@id([machineId, materialId])
+  @@index([materialId])
+}
+
+model MachineAvailability {
+  id             String             @id @default(cuid())
+  machineId      String
+  machine        Machine            @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  isoYear        Int
+  isoWeek        Int // 1-53, ISO-8601 week number
+  status         AvailabilityStatus
+  estimatedHours Int?
+  updatedAt      DateTime           @updatedAt
+  createdAt      DateTime           @default(now())
+
+  @@unique([machineId, isoYear, isoWeek])
+  @@index([isoYear, isoWeek])
+}
+
+// ---------------------------------------------------------------------------
+// RFQs (buyer demand)
+// ---------------------------------------------------------------------------
+
+model Rfq {
+  id                     String    @id @default(cuid())
+  companyId              String
+  company                Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title                  String
+  manufacturingProcessId String
+  manufacturingProcess   ManufacturingProcess @relation(fields: [manufacturingProcessId], references: [id])
+  materialId             String
+  material               Material  @relation(fields: [materialId], references: [id])
+  quantity               Int
+  requiredDeliveryDate   DateTime
+  description            String?
+  status                 RfqStatus @default(DRAFT)
+
+  // Process-specific technical requirements (required axis count, part
+  // envelope, tolerance, turning diameter/length, etc). Validated against a
+  // per-process zod schema mirroring Machine.capabilities.
+  requirements Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files   RfqFile[]
+  matches MatchResult[]
+
+  @@index([companyId])
+  @@index([manufacturingProcessId])
+  @@index([status])
+}
+
+model RfqFile {
+  id             String   @id @default(cuid())
+  rfqId          String
+  rfq            Rfq      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  originalName   String
+  storageKey     String   @unique
+  mimeType       String
+  sizeBytes      Int
+  uploadedByUserId String?
+  uploadedBy     User?    @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+
+  @@index([rfqId])
+}
+
+// ---------------------------------------------------------------------------
+// Matching results (persisted for auditability + supplier-facing views)
+// ---------------------------------------------------------------------------
+
+model MatchResult {
+  id         String   @id @default(cuid())
+  rfqId      String
+  rfq        Rfq      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  machineId  String
+  machine    Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  compatible Boolean
+  score      Int // 0-100, deterministic
+  reasons    Json // MatchReason[] — see src/domain/matching/types.ts
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([rfqId, machineId])
+  @@index([rfqId])
+  @@index([machineId])
+}
