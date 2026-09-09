@@ -84,7 +84,10 @@ export default async function RfqDetailPage({ params }: { params: { id: string }
           <ul className="space-y-1 text-sm">
             {rfq.files.map((file) => (
               <li key={file.id}>
-                <a href={`/api/files/${file.id}`} className="text-slate-800 underline hover:text-slate-950">
+                <a
+                  href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/files/${file.id}`}
+                  className="text-slate-800 underline hover:text-slate-950"
+                >
                   {file.originalName}
                 </a>{" "}
                 <span className="text-slate-400">{t("fileSize", { size: Math.ceil(file.sizeBytes / 1024) })}</span>
