@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { ActionState } from "@/lib/action-state";
 
 export function ActionButton({
@@ -20,6 +21,7 @@ export function ActionButton({
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ActionState | null>(null);
   const router = useRouter();
+  const t = useTranslations("common");
 
   return (
     <div className="space-y-2">
@@ -36,7 +38,7 @@ export function ActionButton({
           });
         }}
       >
-        {pending ? (pendingLabel ?? "Working…") : label}
+        {pending ? (pendingLabel ?? t("working")) : label}
       </button>
       {result?.message && (
         <p className={`text-sm ${result.ok ? "text-green-700" : "text-red-700"}`}>{result.message}</p>

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CompanySchema, MachineCoreSchema, RegisterSchema, RfqCoreSchema } from "./schemas";
+import { buildCompanySchema, buildMachineCoreSchema, buildRegisterSchema, buildRfqCoreSchema } from "./schemas";
+
+const t = (key: string) => key;
+const MachineCoreSchema = buildMachineCoreSchema(t);
+const RegisterSchema = buildRegisterSchema(t);
+const CompanySchema = buildCompanySchema(t);
+const RfqCoreSchema = buildRfqCoreSchema(t);
 
 describe("MachineCoreSchema — optional numeric fields", () => {
   const base = {

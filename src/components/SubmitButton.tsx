@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import { useTranslations } from "next-intl";
 
 export function SubmitButton({
   children,
@@ -12,9 +13,10 @@ export function SubmitButton({
   pendingLabel?: string;
 }) {
   const { pending } = useFormStatus();
+  const t = useTranslations("common");
   return (
     <button type="submit" className={className} disabled={pending}>
-      {pending ? (pendingLabel ?? "Saving…") : children}
+      {pending ? (pendingLabel ?? t("saving")) : children}
     </button>
   );
 }

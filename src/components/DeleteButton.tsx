@@ -1,17 +1,19 @@
 "use client";
 
 import { useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 export function DeleteButton({
   action,
   confirmMessage,
-  label = "Delete",
+  label,
 }: {
   action: () => Promise<unknown>;
   confirmMessage: string;
   label?: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const t = useTranslations("common");
 
   return (
     <button
@@ -25,7 +27,7 @@ export function DeleteButton({
         });
       }}
     >
-      {pending ? "Deleting…" : label}
+      {pending ? t("deleting") : (label ?? t("delete"))}
     </button>
   );
 }

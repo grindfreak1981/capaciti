@@ -9,8 +9,8 @@ import type { MatchReason } from "./types";
  * for missing optional data, while the UI can still show that nothing was
  * actually verified for that dimension.
  */
-function notSpecified(key: string, label: string): MatchReason {
-  return { key, label, passed: true, gating: false, detail: "Not specified by buyer" };
+function notSpecified(key: string): MatchReason {
+  return { key, passed: true, gating: false, detailCode: "notSpecified" };
 }
 
 export function evaluateAxisFit(
@@ -18,17 +18,15 @@ export function evaluateAxisFit(
   requirements: MillingRequirements,
 ): MatchReason {
   if (requirements.requiredAxisCount == null) {
-    return notSpecified("axis", "Axis requirement");
+    return notSpecified("axis");
   }
   const passed = capabilities.axisCount >= requirements.requiredAxisCount;
   return {
     key: "axis",
-    label: "Axis requirement",
     passed,
     gating: true,
-    detail: passed
-      ? `${requirements.requiredAxisCount}-axis requirement satisfied (machine has ${capabilities.axisCount})`
-      : `Requires ${requirements.requiredAxisCount} axes, machine only has ${capabilities.axisCount}`,
+    detailCode: passed ? "axisSatisfied" : "axisInsufficient",
+    detailParams: { required: requirements.requiredAxisCount, actual: capabilities.axisCount },
   };
 }
 
@@ -49,22 +47,19 @@ export function evaluatePartEnvelopeFit(
   ].filter((v): v is number => typeof v === "number");
 
   if (partDims.length === 0) {
-    return notSpecified("envelope", "Part envelope");
+    return notSpecified("envelope");
   }
 
   const travel = [capabilities.travelXMm, capabilities.travelYMm, capabilities.travelZMm];
   const fits = permutationsFit(partDims, travel);
+  const travelStr = travel.join(" x ");
 
   return {
     key: "envelope",
-    label: "Part envelope",
     passed: fits,
     gating: true,
-    detail: fits
-      ? `Part fits within machine travel (${travel.map((t) => t).join(" x ")} mm)`
-      : `Part envelope (${partDims.join(" x ")} mm) does not fit machine travel (${travel
-          .map((t) => t)
-          .join(" x ")} mm) in any orientation`,
+    detailCode: fits ? "envelopeFits" : "envelopeDoesNotFit",
+    detailParams: fits ? { travel: travelStr } : { part: partDims.join(" x "), travel: travelStr },
   };
 }
 
@@ -94,17 +89,15 @@ export function evaluateDiameterFit(
   requirements: TurningRequirements,
 ): MatchReason {
   if (requirements.partDiameterMm == null) {
-    return notSpecified("diameter", "Turning diameter");
+    return notSpecified("diameter");
   }
   const passed = capabilities.maxTurningDiameterMm >= requirements.partDiameterMm;
   return {
     key: "diameter",
-    label: "Turning diameter",
     passed,
     gating: true,
-    detail: passed
-      ? `Part diameter ${requirements.partDiameterMm}mm fits max ${capabilities.maxTurningDiameterMm}mm`
-      : `Part diameter ${requirements.partDiameterMm}mm exceeds max ${capabilities.maxTurningDiameterMm}mm`,
+    detailCode: passed ? "diameterFits" : "diameterExceeds",
+    detailParams: { part: requirements.partDiameterMm, max: capabilities.maxTurningDiameterMm },
   };
 }
 
@@ -113,16 +106,14 @@ export function evaluateLengthFit(
   requirements: TurningRequirements,
 ): MatchReason {
   if (requirements.partLengthMm == null) {
-    return notSpecified("length", "Turning length");
+    return notSpecified("length");
   }
   const passed = capabilities.maxTurningLengthMm >= requirements.partLengthMm;
   return {
     key: "length",
-    label: "Turning length",
     passed,
     gating: true,
-    detail: passed
-      ? `Part length ${requirements.partLengthMm}mm fits max ${capabilities.maxTurningLengthMm}mm`
-      : `Part length ${requirements.partLengthMm}mm exceeds max ${capabilities.maxTurningLengthMm}mm`,
+    detailCode: passed ? "lengthFits" : "lengthExceeds",
+    detailParams: { part: requirements.partLengthMm, max: capabilities.maxTurningLengthMm },
   };
 }

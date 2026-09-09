@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { setMachineWeekAvailabilityAction } from "@/app/actions/machines";
 
 export interface WeekRow {
@@ -19,6 +20,8 @@ export function AvailabilityGrid({ machineId, weeks }: { machineId: string; week
   const [rows, setRows] = useState(weeks);
   const [pending, startTransition] = useTransition();
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const t = useTranslations("machines");
+  const tCommon = useTranslations("common");
 
   function save(index: number, patch: Partial<WeekRow>) {
     const next = rows.slice();
@@ -45,9 +48,9 @@ export function AvailabilityGrid({ machineId, weeks }: { machineId: string; week
     <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-slate-200 text-left text-slate-500">
-          <th className="py-2 font-medium">Week</th>
-          <th className="py-2 font-medium">Status</th>
-          <th className="py-2 font-medium">Est. hours</th>
+          <th className="py-2 font-medium">{t("weekColumn")}</th>
+          <th className="py-2 font-medium">{t("statusColumn")}</th>
+          <th className="py-2 font-medium">{t("estHoursColumn")}</th>
           <th className="py-2"></th>
         </tr>
       </thead>
@@ -64,11 +67,11 @@ export function AvailabilityGrid({ machineId, weeks }: { machineId: string; week
                   onChange={(e) => save(i, { status: e.target.value as WeekRow["status"] })}
                 >
                   <option value="" disabled>
-                    Not set
+                    {t("notSetOption")}
                   </option>
-                  <option value="AVAILABLE">Available</option>
-                  <option value="LIMITED">Limited</option>
-                  <option value="FULL">Full</option>
+                  <option value="AVAILABLE">{tCommon("statusAvailable")}</option>
+                  <option value="LIMITED">{tCommon("statusLimited")}</option>
+                  <option value="FULL">{tCommon("statusFull")}</option>
                 </select>
               </td>
               <td className="py-2">
@@ -85,7 +88,7 @@ export function AvailabilityGrid({ machineId, weeks }: { machineId: string; week
                 />
               </td>
               <td className="w-16 py-2 text-xs text-slate-400">
-                {pending && savingKey === key ? "Saving…" : null}
+                {pending && savingKey === key ? tCommon("saving") : null}
               </td>
             </tr>
           );

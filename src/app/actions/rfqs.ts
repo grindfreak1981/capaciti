@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import { redirect } from "@/i18n/redirect";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertOwnsCompanyResource, requireCompany } from "@/lib/auth";
-import { RfqCoreSchema } from "@/lib/schemas";
+import { buildRfqCoreSchema, buildZodErrorMap } from "@/lib/schemas";
 import { readFieldsFromFormData } from "@/lib/process-form";
 import { getProcessDefinition } from "@/domain/processes/registry";
 import { validateUploadedFile } from "@/domain/files/validation";
@@ -15,12 +16,14 @@ import type { ActionState } from "@/lib/action-state";
 
 export async function createRfqAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { user, company } = await requireCompany();
+  const t = await getTranslations("rfqs");
   if (company.companyType === "SUPPLIER") {
-    return { ok: false, message: "Only buyer companies can create RFQs." };
+    return { ok: false, message: t("onlyBuyerCanCreate") };
   }
 
+  const tValidation = await getTranslations("validation");
   const raw = Object.fromEntries(formData);
-  const parsed = RfqCoreSchema.safeParse(raw);
+  const parsed = buildRfqCoreSchema(tValidation).safeParse(raw, { errorMap: buildZodErrorMap(tValidation) });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   }
@@ -28,20 +31,20 @@ export async function createRfqAction(_prev: ActionState, formData: FormData): P
   const process = await prisma.manufacturingProcess.findUnique({
     where: { id: parsed.data.manufacturingProcessId },
   });
-  if (!process) return { ok: false, message: "Unknown manufacturing process." };
+  if (!process) return { ok: false, message: t("unknownProcess") };
 
   const def = getProcessDefinition(process.code);
   const rawRequirements = readFieldsFromFormData(def.requirementFields, formData);
   const requirementsResult = def.requirementsSchema.safeParse(rawRequirements);
   if (!requirementsResult.success) {
-    return { ok: false, message: "Some technical requirement fields are invalid for the selected process." };
+    return { ok: false, message: t("invalidRequirements") };
   }
 
   const files = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
   for (const file of files) {
     const validation = validateUploadedFile(file);
     if (!validation.ok) {
-      return { ok: false, message: validation.error };
+      return { ok: false, message: t(validation.errorCode, validation.errorParams) };
     }
   }
 
@@ -77,30 +80,32 @@ export async function createRfqAction(_prev: ActionState, formData: FormData): P
   }
 
   revalidatePath("/rfqs");
-  redirect(`/rfqs/${rfq.id}`);
+  return redirect(`/rfqs/${rfq.id}`);
 }
 
 export async function submitRfqAction(rfqId: string): Promise<ActionState> {
   const { user } = await requireCompany();
+  const t = await getTranslations("rfqs");
   const rfq = await prisma.rfq.findUnique({ where: { id: rfqId } });
-  if (!rfq) return { ok: false, message: "RFQ not found." };
+  if (!rfq) return { ok: false, message: t("notFound") };
   assertOwnsCompanyResource(user, rfq.companyId);
 
   if (rfq.status !== "DRAFT") {
-    return { ok: false, message: "Only draft RFQs can be submitted." };
+    return { ok: false, message: t("onlyDraftCanSubmit") };
   }
 
   await prisma.rfq.update({ where: { id: rfqId }, data: { status: "OPEN" } });
   await runMatchingForRfq(rfqId);
 
   revalidatePath(`/rfqs/${rfqId}`);
-  return { ok: true, message: "RFQ submitted and matched against available suppliers." };
+  return { ok: true, message: t("submitted") };
 }
 
 export async function cancelRfqAction(rfqId: string): Promise<ActionState> {
   const { user } = await requireCompany();
+  const t = await getTranslations("rfqs");
   const rfq = await prisma.rfq.findUnique({ where: { id: rfqId } });
-  if (!rfq) return { ok: false, message: "RFQ not found." };
+  if (!rfq) return { ok: false, message: t("notFound") };
   assertOwnsCompanyResource(user, rfq.companyId);
 
   await prisma.rfq.update({ where: { id: rfqId }, data: { status: "CANCELLED" } });
@@ -110,14 +115,15 @@ export async function cancelRfqAction(rfqId: string): Promise<ActionState> {
 
 export async function rerunMatchingAction(rfqId: string): Promise<ActionState> {
   const { user } = await requireCompany();
+  const t = await getTranslations("rfqs");
   const rfq = await prisma.rfq.findUnique({ where: { id: rfqId } });
-  if (!rfq) return { ok: false, message: "RFQ not found." };
+  if (!rfq) return { ok: false, message: t("notFound") };
   assertOwnsCompanyResource(user, rfq.companyId);
   if (rfq.status !== "OPEN") {
-    return { ok: false, message: "Matching can only be re-run for open RFQs." };
+    return { ok: false, message: t("onlyOpenCanRerun") };
   }
 
   await runMatchingForRfq(rfqId);
   revalidatePath(`/rfqs/${rfqId}`);
-  return { ok: true, message: "Matches refreshed." };
+  return { ok: true, message: t("matchesRefreshed") };
 }

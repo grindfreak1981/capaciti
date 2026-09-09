@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { FieldSpec } from "@/domain/processes/types";
 
 /** Renders form inputs for a process's capability/requirement fields.
@@ -12,6 +13,7 @@ export function ProcessFieldsInput({
   fields: FieldSpec[];
   defaults?: Record<string, unknown>;
 }) {
+  const t = useTranslations("fields");
   return (
     <div className="grid grid-cols-2 gap-4">
       {fields.map((field) => {
@@ -25,14 +27,14 @@ export function ProcessFieldsInput({
                 defaultChecked={Boolean(defaultValue)}
                 className="h-4 w-4 rounded border-slate-300"
               />
-              {field.label}
+              {t(field.key)}
             </label>
           );
         }
         return (
           <div key={field.key}>
             <label className="field-label" htmlFor={field.key}>
-              {field.label}
+              {t(field.key)}
               {field.unit ? ` (${field.unit})` : ""}
               {field.required ? " *" : ""}
             </label>

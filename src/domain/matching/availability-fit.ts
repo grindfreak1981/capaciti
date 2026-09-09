@@ -35,13 +35,10 @@ export function evaluateAvailabilityFit(
       summary: "AVAILABLE",
       reason: {
         key: "availability",
-        label: "Availability",
         passed: true,
         gating: true,
-        detail:
-          hours != null
-            ? `Capacity available before deadline (~${hours}h free)`
-            : "Capacity available before deadline",
+        detailCode: hours != null ? "availableWithHours" : "availableNoHours",
+        detailParams: hours != null ? { hours } : undefined,
       },
     };
   }
@@ -51,10 +48,9 @@ export function evaluateAvailabilityFit(
       summary: "LIMITED",
       reason: {
         key: "availability",
-        label: "Availability",
         passed: true,
         gating: true,
-        detail: "Limited capacity available before deadline",
+        detailCode: "limitedAvailability",
       },
     };
   }
@@ -64,10 +60,9 @@ export function evaluateAvailabilityFit(
       summary: "FULL",
       reason: {
         key: "availability",
-        label: "Availability",
         passed: false,
         gating: true,
-        detail: "Machine is fully booked for the required period",
+        detailCode: "fullyBooked",
       },
     };
   }
@@ -76,10 +71,9 @@ export function evaluateAvailabilityFit(
     summary: "UNKNOWN",
     reason: {
       key: "availability",
-      label: "Availability",
       passed: false,
       gating: true,
-      detail: "Supplier has not published availability for the required period",
+      detailCode: "noAvailabilityPublished",
     },
   };
 }

@@ -1,20 +1,24 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import { redirect } from "@/i18n/redirect";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { CompanySchema } from "@/lib/schemas";
+import { buildCompanySchema, buildZodErrorMap } from "@/lib/schemas";
 import { slugify } from "@/lib/slug";
 import type { ActionState } from "@/lib/action-state";
 
 export async function createCompanyAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
   if (user.companyId) {
-    return { ok: false, message: "You already belong to a company." };
+    const t = await getTranslations("company");
+    return { ok: false, message: t("alreadyHaveCompany") };
   }
 
-  const raw = Object.fromEntries(formData);
-  const parsed = CompanySchema.safeParse(raw);
+  const tValidation = await getTranslations("validation");
+  const parsed = buildCompanySchema(tValidation).safeParse(Object.fromEntries(formData), {
+    errorMap: buildZodErrorMap(tValidation),
+  });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   }
@@ -43,5 +47,5 @@ export async function createCompanyAction(_prev: ActionState, formData: FormData
 
   await prisma.user.update({ where: { id: user.id }, data: { companyId: company.id } });
 
-  redirect("/dashboard");
+  return redirect("/dashboard");
 }

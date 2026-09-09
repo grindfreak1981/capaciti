@@ -1,5 +1,5 @@
 import "server-only";
-import { redirect } from "next/navigation";
+import { redirect } from "@/i18n/redirect";
 import { prisma } from "./prisma";
 import { readSessionCookie } from "@/domain/auth/session";
 import type { Company, User } from "@prisma/client";
@@ -21,14 +21,14 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 /** Redirects to /login when there is no authenticated user. */
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) return redirect("/login");
   return user;
 }
 
 /** Redirects to /companies/new when the user has no company yet. */
 export async function requireCompany(): Promise<{ user: CurrentUser; company: Company }> {
   const user = await requireUser();
-  if (!user.company) redirect("/companies/new");
+  if (!user.company) return redirect("/companies/new");
   return { user, company: user.company };
 }
 

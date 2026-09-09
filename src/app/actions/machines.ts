@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import { redirect } from "@/i18n/redirect";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertOwnsCompanyResource, requireCompany } from "@/lib/auth";
-import { MachineCoreSchema, AvailabilityEntrySchema } from "@/lib/schemas";
+import { buildMachineCoreSchema, buildZodErrorMap, AvailabilityEntrySchema } from "@/lib/schemas";
 import { readFieldsFromFormData } from "@/lib/process-form";
 import { getProcessDefinition } from "@/domain/processes/registry";
 import type { ActionState } from "@/lib/action-state";
@@ -20,13 +21,18 @@ async function loadCompanyProcessOrThrow(manufacturingProcessId: string) {
 
 export async function createMachineAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { company } = await requireCompany();
+  const t = await getTranslations("machines");
   if (company.companyType === "BUYER") {
-    return { ok: false, message: "Only supplier companies can add machines." };
+    return { ok: false, message: t("onlySupplierCanAdd") };
   }
 
+  const tValidation = await getTranslations("validation");
   const raw = Object.fromEntries(formData);
   const materialIds = formData.getAll("materialIds").map(String);
-  const parsed = MachineCoreSchema.safeParse({ ...raw, materialIds });
+  const parsed = buildMachineCoreSchema(tValidation).safeParse(
+    { ...raw, materialIds },
+    { errorMap: buildZodErrorMap(tValidation) },
+  );
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   }
@@ -36,10 +42,7 @@ export async function createMachineAction(_prev: ActionState, formData: FormData
   const rawCapabilities = readFieldsFromFormData(def.capabilityFields, formData);
   const capabilitiesResult = def.capabilitiesSchema.safeParse(rawCapabilities);
   if (!capabilitiesResult.success) {
-    return {
-      ok: false,
-      message: "Some technical capability fields are missing or invalid for the selected process.",
-    };
+    return { ok: false, message: t("invalidCapabilities") };
   }
 
   const machine = await prisma.machine.create({
@@ -58,7 +61,7 @@ export async function createMachineAction(_prev: ActionState, formData: FormData
   });
 
   revalidatePath("/machines");
-  redirect(`/machines/${machine.id}`);
+  return redirect(`/machines/${machine.id}`);
 }
 
 export async function updateMachineAction(
@@ -67,13 +70,18 @@ export async function updateMachineAction(
   formData: FormData,
 ): Promise<ActionState> {
   const { user } = await requireCompany();
+  const t = await getTranslations("machines");
   const existing = await prisma.machine.findUnique({ where: { id: machineId } });
-  if (!existing) return { ok: false, message: "Machine not found." };
+  if (!existing) return { ok: false, message: t("notFound") };
   assertOwnsCompanyResource(user, existing.companyId);
 
+  const tValidation = await getTranslations("validation");
   const raw = Object.fromEntries(formData);
   const materialIds = formData.getAll("materialIds").map(String);
-  const parsed = MachineCoreSchema.safeParse({ ...raw, manufacturingProcessId: existing.manufacturingProcessId, materialIds });
+  const parsed = buildMachineCoreSchema(tValidation).safeParse(
+    { ...raw, manufacturingProcessId: existing.manufacturingProcessId, materialIds },
+    { errorMap: buildZodErrorMap(tValidation) },
+  );
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   }
@@ -83,10 +91,7 @@ export async function updateMachineAction(
   const rawCapabilities = readFieldsFromFormData(def.capabilityFields, formData);
   const capabilitiesResult = def.capabilitiesSchema.safeParse(rawCapabilities);
   if (!capabilitiesResult.success) {
-    return {
-      ok: false,
-      message: "Some technical capability fields are missing or invalid for the selected process.",
-    };
+    return { ok: false, message: t("invalidCapabilities") };
   }
 
   await prisma.$transaction([
@@ -107,18 +112,19 @@ export async function updateMachineAction(
   ]);
 
   revalidatePath(`/machines/${machineId}`);
-  return { ok: true, message: "Machine updated." };
+  return { ok: true, message: t("updated") };
 }
 
 export async function deleteMachineAction(machineId: string): Promise<ActionState> {
   const { user } = await requireCompany();
+  const t = await getTranslations("machines");
   const existing = await prisma.machine.findUnique({ where: { id: machineId } });
-  if (!existing) return { ok: false, message: "Machine not found." };
+  if (!existing) return { ok: false, message: t("notFound") };
   assertOwnsCompanyResource(user, existing.companyId);
 
   await prisma.machine.delete({ where: { id: machineId } });
   revalidatePath("/machines");
-  redirect("/machines");
+  return redirect("/machines");
 }
 
 export async function setMachineWeekAvailabilityAction(input: {
@@ -129,8 +135,9 @@ export async function setMachineWeekAvailabilityAction(input: {
   estimatedHours: number | null;
 }): Promise<ActionState> {
   const { user } = await requireCompany();
+  const t = await getTranslations("machines");
   const machine = await prisma.machine.findUnique({ where: { id: input.machineId } });
-  if (!machine) return { ok: false, message: "Machine not found." };
+  if (!machine) return { ok: false, message: t("notFound") };
   assertOwnsCompanyResource(user, machine.companyId);
 
   const parsed = AvailabilityEntrySchema.safeParse({
@@ -140,7 +147,7 @@ export async function setMachineWeekAvailabilityAction(input: {
     estimatedHours: input.estimatedHours,
   });
   if (!parsed.success) {
-    return { ok: false, message: "Invalid availability value." };
+    return { ok: false, message: t("invalidAvailabilityValue") };
   }
 
   await prisma.machineAvailability.upsert({

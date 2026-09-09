@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 const AVAILABILITY_STYLES: Record<string, string> = {
   AVAILABLE: "bg-green-50 text-green-800 border-green-300",
   LIMITED: "bg-amber-50 text-amber-800 border-amber-300",
@@ -22,18 +24,37 @@ function Badge({ label, className }: { label: string; className: string }) {
   );
 }
 
-export function AvailabilityBadge({ status }: { status: string }) {
-  return <Badge label={status} className={AVAILABILITY_STYLES[status] ?? AVAILABILITY_STYLES.UNKNOWN} />;
+const AVAILABILITY_LABEL_KEYS: Record<string, string> = {
+  AVAILABLE: "statusAvailable",
+  LIMITED: "statusLimited",
+  FULL: "statusFull",
+  UNKNOWN: "statusUnknown",
+};
+
+const RFQ_STATUS_LABEL_KEYS: Record<string, string> = {
+  DRAFT: "rfqStatusDraft",
+  OPEN: "rfqStatusOpen",
+  CLOSED: "rfqStatusClosed",
+  CANCELLED: "rfqStatusCancelled",
+};
+
+export async function AvailabilityBadge({ status }: { status: string }) {
+  const t = await getTranslations("common");
+  const key = AVAILABILITY_LABEL_KEYS[status] ?? AVAILABILITY_LABEL_KEYS.UNKNOWN;
+  return <Badge label={t(key)} className={AVAILABILITY_STYLES[status] ?? AVAILABILITY_STYLES.UNKNOWN} />;
 }
 
-export function RfqStatusBadge({ status }: { status: string }) {
-  return <Badge label={status} className={RFQ_STATUS_STYLES[status] ?? RFQ_STATUS_STYLES.DRAFT} />;
+export async function RfqStatusBadge({ status }: { status: string }) {
+  const t = await getTranslations("common");
+  const key = RFQ_STATUS_LABEL_KEYS[status] ?? RFQ_STATUS_LABEL_KEYS.DRAFT;
+  return <Badge label={t(key)} className={RFQ_STATUS_STYLES[status] ?? RFQ_STATUS_STYLES.DRAFT} />;
 }
 
-export function CompatibilityBadge({ compatible }: { compatible: boolean }) {
+export async function CompatibilityBadge({ compatible }: { compatible: boolean }) {
+  const t = await getTranslations("common");
   return compatible ? (
-    <Badge label="Compatible" className="bg-green-50 text-green-800 border-green-300" />
+    <Badge label={t("compatible")} className="bg-green-50 text-green-800 border-green-300" />
   ) : (
-    <Badge label="Not compatible" className="bg-slate-100 text-slate-600 border-slate-300" />
+    <Badge label={t("notCompatible")} className="bg-slate-100 text-slate-600 border-slate-300" />
   );
 }

@@ -32,13 +32,18 @@ export interface RfqForMatching {
   requirements: unknown;
 }
 
+/**
+ * Reasons are stored (and persisted to the DB) as translation keys plus
+ * interpolation params rather than rendered English text, so the same
+ * MatchResult can be displayed in any supported UI language.
+ */
 export interface MatchReason {
   key: string;
-  label: string;
   passed: boolean;
   /** Whether a failure here disqualifies the machine outright. */
   gating: boolean;
-  detail?: string;
+  detailCode: string;
+  detailParams?: Record<string, string | number>;
 }
 
 export type AvailabilitySummary = "AVAILABLE" | "LIMITED" | "FULL" | "UNKNOWN";

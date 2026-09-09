@@ -27,12 +27,12 @@ function evaluateProcessMatch(rfq: RfqForMatching, machine: MachineForMatching):
   const passed = rfq.processCode === machine.processCode;
   return {
     key: "process",
-    label: "Manufacturing process",
     passed,
     gating: true,
-    detail: passed
-      ? `Machine supports ${machine.processCode}`
-      : `Machine performs ${machine.processCode}, RFQ requires ${rfq.processCode}`,
+    detailCode: passed ? "processSupported" : "processMismatch",
+    detailParams: passed
+      ? { process: machine.processCode }
+      : { machineProcess: machine.processCode, rfqProcess: rfq.processCode },
   };
 }
 
@@ -40,19 +40,17 @@ function evaluateMaterialMatch(rfq: RfqForMatching, machine: MachineForMatching)
   if (machine.materialIds.length === 0) {
     return {
       key: "material",
-      label: "Material",
       passed: false,
       gating: true,
-      detail: "Machine has no supported materials declared",
+      detailCode: "materialNoneDeclared",
     };
   }
   const passed = machine.materialIds.includes(rfq.materialId);
   return {
     key: "material",
-    label: "Material",
     passed,
     gating: true,
-    detail: passed ? "Requested material is supported" : "Requested material is not supported",
+    detailCode: passed ? "materialSupported" : "materialNotSupported",
   };
 }
 
@@ -61,36 +59,35 @@ function evaluateBatchSize(rfq: RfqForMatching, machine: MachineForMatching): Ma
   if (minimumBatchSize == null && maximumBatchSize == null) {
     return {
       key: "batch",
-      label: "Batch size",
       passed: true,
       gating: false,
-      detail: "No batch size restriction",
+      detailCode: "batchNoRestriction",
     };
   }
   if (minimumBatchSize != null && rfq.quantity < minimumBatchSize) {
     return {
       key: "batch",
-      label: "Batch size",
       passed: false,
       gating: true,
-      detail: `Quantity ${rfq.quantity} is below minimum batch size ${minimumBatchSize}`,
+      detailCode: "batchBelowMinimum",
+      detailParams: { quantity: rfq.quantity, minimum: minimumBatchSize },
     };
   }
   if (maximumBatchSize != null && rfq.quantity > maximumBatchSize) {
     return {
       key: "batch",
-      label: "Batch size",
       passed: false,
       gating: true,
-      detail: `Quantity ${rfq.quantity} exceeds maximum batch size ${maximumBatchSize}`,
+      detailCode: "batchAboveMaximum",
+      detailParams: { quantity: rfq.quantity, maximum: maximumBatchSize },
     };
   }
   return {
     key: "batch",
-    label: "Batch size",
     passed: true,
     gating: false,
-    detail: `Quantity ${rfq.quantity} is within supported batch size`,
+    detailCode: "batchWithinRange",
+    detailParams: { quantity: rfq.quantity },
   };
 }
 
