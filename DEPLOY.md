@@ -1,9 +1,9 @@
-# Deploying to abscreations.eu/cnc
+# Deploying to abscreations.eu/capaciti
 
 This app runs as two Docker containers on the abscreations.eu VPS, following the
 same pattern as the other apps on that host (`elesko-app`, `databridge-postgres`,
 etc.): a dedicated Postgres container, an app container built from the
-`Dockerfile` here, and a Caddy `handle` block that reverse-proxies `/cnc/*` to
+`Dockerfile` here, and a Caddy `handle` block that reverse-proxies `/capaciti/*` to
 the app container's published port.
 
 ## One-time server setup
@@ -23,8 +23,8 @@ alongside the other `@name path ...` handlers (must come before the final
 catch-all `handle { root * /var/www/abscreations ... }`):
 
 ```caddyfile
-@cnc path /cnc /cnc/*
-handle @cnc {
+@capaciti path /capaciti /capaciti/*
+handle @capaciti {
 	reverse_proxy 127.0.0.1:8102 {
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto https
@@ -53,8 +53,8 @@ separate step.
 
 ## Notes
 
-- `NEXT_PUBLIC_BASE_PATH=/cnc` bakes the subpath into the Next.js build
-  (`next.config.mjs`'s `basePath`) — Caddy forwards the `/cnc` prefix as-is
+- `NEXT_PUBLIC_BASE_PATH=/capaciti` bakes the subpath into the Next.js build
+  (`next.config.mjs`'s `basePath`) — Caddy forwards the `/capaciti` prefix as-is
   rather than stripping it, so the app must know it lives under that prefix.
 - Uploaded RFQ files live in the `capaciti-uploads` Docker volume, not inside
   the container, so they survive `docker compose up -d --build`.

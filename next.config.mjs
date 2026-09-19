@@ -5,8 +5,8 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Set when this app is reverse-proxied under a subpath (e.g. Caddy
-  // forwarding /cnc/* to this app without stripping the prefix) — see
-  // NEXT_PUBLIC_BASE_PATH in deploy/README.md.
+  // forwarding /capaciti/* to this app without stripping the prefix) — see
+  // NEXT_PUBLIC_BASE_PATH in DEPLOY.md.
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
   experimental: {
     serverActions: {
